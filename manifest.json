@@ -1,0 +1,16 @@
+{
+  "name": "Сканер склада",
+  "short_name": "Сканер",
+  "description": "Приложение для сканирования штрихкодов и обновления статуса товаров",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1006/1006555.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
