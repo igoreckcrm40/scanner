@@ -2,107 +2,121 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Сканер склада</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Inventarizator — Складской сканер</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-    h1 { color: #333; }
-    #reader {
-      width: 300px;
-      margin: 0 auto;
-      border: 2px solid #4CAF50;
-      border-radius: 10px;
-    }
-    #result {
-      font-size: 18px;
-      margin-top: 20px;
-      padding: 10px;
-      background: white;
-      border-radius: 5px;
-    }
-    button {
-      padding: 14px 28px;
-      font-size: 18px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      margin-top: 15px;
-      cursor: pointer;
-    }
-    button:active { background: #388E3C; }
-    #manual-input {
-      margin-top: 20px;
-      padding: 10px;
-    }
-    input[type="text"] {
-      padding: 12px;
-      font-size: 20px;
-      width: 180px;
-      text-align: center;
-      border: 2px solid #4CAF50;
-      border-radius: 5px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #fff; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .scan-btn { padding: 12px 24px; font-size: 18px; margin: 8px 0; }
+    .list-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .send-btn { padding: 10px 20px; font-size: 16px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .send-btn:active { background: #388E3C; }
+    #status { margin-top: 12px; font-size: 16px; color: #333; }
   </style>
 </head>
 <body>
-  <h1>📦 Сканер склада</h1>
-  <div id="reader"></div>
-  <p>Наведите камеру на штрихкод</p>
-  <div id="result"></div>
+  <h1>📦 Инвентаризатор</h1>
+  <button id="scanButton" class="scan-btn">Сканировать штрихкод</button>
+  <div id="reader" style="width: 300px; margin: 0 auto; display: none;"></div>
 
-  <div id="manual-input">
-    <input type="text" id="barcodeInput" placeholder="1234" maxlength="4" autofocus>
-    <br>
-    <button onclick="checkManualBarcode()">Отправить вручную</button>
+  <h3>📋 Список товаров</h3>
+  <div id="itemList"></div>
+
+  <div style="margin-top: 20px;">
+    <button id="sendToSheets" class="send-btn">📤 Отправить в Google Таблицу</button>
+    <div id="status"></div>
   </div>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
   <script>
-    // Готовый URL вашего скрипта
+    // ---------- НАСТРОЙКИ ----------
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzidSqm4iVHR2eomUB9Awz5T1Y0gMT04mw1gD7szawmi2R2goQ9mQRDSiQ9XCNQQicA/exec";
+    
+    // Хранилище отсканированных товаров
+    let scannedItems = [];
 
-    const html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader",
-      { fps: 10, qrbox: { width: 250, height: 150 } },
-      false
-    );
+    // ---------- СКАНЕР ----------
+    const scanButton = document.getElementById('scanButton');
+    const readerDiv = document.getElementById('reader');
+    const itemListDiv = document.getElementById('itemList');
+    const sendButton = document.getElementById('sendToSheets');
+    const statusDiv = document.getElementById('status');
 
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    let html5QrcodeScanner = null;
 
-    function onScanSuccess(decodedText, decodedResult) {
-      document.getElementById('result').innerHTML = 'Обработка: ' + decodedText;
-      updateStatus(decodedText);
+    scanButton.addEventListener('click', function() {
+      if (html5QrcodeScanner) {
+        // Если сканер уже запущен – останавливаем
+        html5QrcodeScanner.clear();
+        readerDiv.style.display = 'none';
+        scanButton.textContent = 'Сканировать штрихкод';
+        html5QrcodeScanner = null;
+        return;
+      }
+
+      readerDiv.style.display = 'block';
+      scanButton.textContent = 'Остановить сканер';
+
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        false
+      );
+      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    });
+
+    function onScanSuccess(decodedText) {
+      // Добавляем в список
+      scannedItems.push({
+        barcode: decodedText,
+        time: new Date().toLocaleTimeString()
+      });
+      renderList();
+
+      // Останавливаем сканер после успешного сканирования
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear();
+        readerDiv.style.display = 'none';
+        scanButton.textContent = 'Сканировать штрихкод';
+        html5QrcodeScanner = null;
+      }
     }
 
     function onScanFailure(error) {
-      // Игнорируем ошибки сканирования
+      // Игнорируем
     }
 
-    function checkManualBarcode() {
-      const code = document.getElementById('barcodeInput').value;
-      if (code.length === 0) return;
-      document.getElementById('result').innerHTML = 'Обработка: ' + code;
-      updateStatus(code);
+    function renderList() {
+      itemListDiv.innerHTML = '';
+      scannedItems.forEach(function(item, index) {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `<span>🔹 ${item.barcode}</span><span>${item.time}</span>`;
+        itemListDiv.appendChild(div);
+      });
     }
 
-    function updateStatus(barcode) {
+    // ---------- ОТПРАВКА В GOOGLE SHEETS ----------
+    sendButton.addEventListener('click', function() {
+      if (scannedItems.length === 0) {
+        statusDiv.textContent = '❌ Нет отсканированных товаров';
+        return;
+      }
+
+      // Берём последний отсканированный код
+      const lastItem = scannedItems[scannedItems.length - 1];
+      statusDiv.textContent = '⏳ Отправка...';
+
       google.script.run
         .withSuccessHandler(function(message) {
-          document.getElementById('result').innerHTML = message;
-          document.getElementById('barcodeInput').value = '';
+          statusDiv.textContent = message;
+          // После успешной отправки можно очистить список или оставить
         })
         .withFailureHandler(function(error) {
-          document.getElementById('result').innerHTML = '❌ Ошибка: ' + error.message;
+          statusDiv.textContent = '❌ Ошибка: ' + error.message;
         })
-        .updateStatusByBarcode(barcode);
-    }
+        .updateStatusByBarcode(lastItem.barcode);
+    });
   </script>
 </body>
 </html>
