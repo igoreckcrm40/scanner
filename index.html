@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Сканер склада</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; }
+    #reader {
+      width: 300px;
+      margin: 0 auto;
+      border: 2px solid #4CAF50;
+      border-radius: 10px;
+    }
+    #result {
+      font-size: 18px;
+      margin-top: 20px;
+      padding: 10px;
+      background: white;
+      border-radius: 5px;
+    }
+    button {
+      padding: 14px 28px;
+      font-size: 18px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+    button:active { background: #388E3C; }
+    #manual-input {
+      margin-top: 20px;
+      padding: 10px;
+    }
+    input[type="text"] {
+      padding: 12px;
+      font-size: 20px;
+      width: 180px;
+      text-align: center;
+      border: 2px solid #4CAF50;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📦 Сканер склада</h1>
+  <div id="reader"></div>
+  <p>Наведите камеру на штрихкод</p>
+  <div id="result"></div>
+
+  <div id="manual-input">
+    <input type="text" id="barcodeInput" placeholder="1234" maxlength="4" autofocus>
+    <br>
+    <button onclick="checkManualBarcode()">Отправить вручную</button>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <script>
+    // Готовый URL вашего скрипта
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzidSqm4iVHR2eomUB9Awz5T1Y0gMT04mw1gD7szawmi2R2goQ9mQRDSiQ9XCNQQicA/exec";
+
+    const html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      false
+    );
+
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+    function onScanSuccess(decodedText, decodedResult) {
+      document.getElementById('result').innerHTML = 'Обработка: ' + decodedText;
+      updateStatus(decodedText);
+    }
+
+    function onScanFailure(error) {
+      // Игнорируем ошибки
+    }
+
+    function checkManualBarcode() {
+      const code = document.getElementById('barcodeInput').value;
+      if (code.length === 0) return;
+      document.getElementById('result').innerHTML = 'Обработка: ' + code;
+      updateStatus(code);
+    }
+
+    function updateStatus(barcode) {
+      google.script.run
+        .withSuccessHandler(function(message) {
+          document.getElementById('result').innerHTML = message;
+          document.getElementById('barcodeInput').value = '';
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('result').innerHTML = '❌ Ошибка: ' + error.message;
+        })
+        .updateStatusByBarcode(barcode);
+    }
+  </script>
+</body>
+</html>
